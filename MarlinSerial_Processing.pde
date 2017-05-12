@@ -2,7 +2,7 @@ import processing.serial.*;
 
 Serial myPort;  // Create object from Serial class
 String val;     // Data received from the serial port    
-boolean ready;
+boolean readyForNext=false;
 boolean First=true;
 char serial_line_buffer[] = new char[100];
 
@@ -10,7 +10,7 @@ long CurrentLineNr =0;
 
 String KeyboardString = "";
 String NrCommandAndChecksum = null;
-
+String incomingKeyboardString=null;
 boolean moveInZ = false;
 
 //Function that adds checksum to current command
@@ -51,57 +51,88 @@ void setup()
   
 }
 
-  
+boolean keyispressed=false;
 void draw()
 {
-  
+  if(keyispressed){
+    if(readyForNext){ //Wait for incomming "ok" before next move to not overload buffer
+      EvaluateKey();
+    }
+  }
 }
 
-void serialEvent(Serial myPort) {
-
-      String incomingKeyboardString=null;
-      //if error occures, do not stop code...
-      try {
-        // get the Serial-ASCII string:
-        incomingKeyboardString = myPort.readStringUntil('\n');
-
-        if (incomingKeyboardString != null) {
-           println(incomingKeyboardString); //debug
-          // trim off any whitespace before and after the data (if exists)
-          incomingKeyboardString = trim(incomingKeyboardString);
-  
-            
-        }
-    }
-    catch(RuntimeException e) {
-      println(e);
-    }
-
- }
- 
- //Function that triggers when a key is pressed, that sends data to the Arduino over serial.
-void keyPressed() {
-  // If the return key is pressed, do something with it
-  //println(key);
+ void EvaluateKey(){
   if (key == CODED) {
     //println(keyCode);
+    int Zspeed = 300; //mm/min
+    int Zdistance=1;  //mm
+    int XYspeed = 900;
+    int XYdistance=1;
     
+    readyForNext=false;
+
     if (keyCode == UP && moveInZ) {
-      ApplyNrChecksumAndSend("G1 Z1 F300");
+      ApplyNrChecksumAndSend("G1 Z" + Zdistance + " F"+Zspeed);
     } else if (keyCode == DOWN && moveInZ) {
-      ApplyNrChecksumAndSend("G1 Z-1 F300");
+      ApplyNrChecksumAndSend("G1 Z-" + Zdistance + " F"+Zspeed);
     } else if (keyCode == UP) {
-      ApplyNrChecksumAndSend("G1 Y1 F600");
+      ApplyNrChecksumAndSend("G1 Y" + XYdistance + " F"+XYspeed);
     } else if (keyCode == DOWN) {
-      ApplyNrChecksumAndSend("G1 Y-1 F600");
+      ApplyNrChecksumAndSend("G1 Y-" + XYdistance + " F"+XYspeed);
     } else if (keyCode == RIGHT) {
-      ApplyNrChecksumAndSend("G1 X1 F600");
+      ApplyNrChecksumAndSend("G1 X" + XYdistance + " F"+XYspeed);
     } else if (keyCode == LEFT) {
-      ApplyNrChecksumAndSend("G1 X-1 F600");
-    } 
+      ApplyNrChecksumAndSend("G1 X-" + XYdistance + " F"+XYspeed);
+      
+    }
+    //delay the amount of time it takes for the axel to reach its position
+    //Marlin answers with "ok" way before this happens which will casue lagg
+    if(keyCode == UP && moveInZ){
+      delay(1000*Zdistance/(Zspeed/60)); //[mm/(mm/s)]=[s]
+    }else{
+      delay(1000*XYdistance/(XYspeed/60));
+    }
+        
   }else if (key == 'z' ) {
     moveInZ = true; //
   }else if (key == 'y' ) {
     moveInZ = false; //
   }
+  
+ }
+
+ void serialEvent(Serial myPort) {
+
+      
+  //if error occures, do not stop code...
+  try {
+    // get the Serial-ASCII string:
+    incomingKeyboardString = myPort.readStringUntil('\n');
+
+    if (incomingKeyboardString != null) {
+       
+      // trim off any whitespace before and after the data (if exists)
+      incomingKeyboardString = trim(incomingKeyboardString);
+      
+      //println(incomingKeyboardString); //debug
+      
+      if(incomingKeyboardString.contains("ok")){
+        readyForNext=true;
+      }
+    }
+  }
+  catch(RuntimeException e) {
+    println(e);
+  }
+
+ }
+ 
+ //Function that triggers when a key is pressed, that sends data to the Arduino over serial.
+void keyPressed() {
+  keyispressed=true;
+
+}
+
+void keyReleased() {
+  keyispressed=false;
 }
