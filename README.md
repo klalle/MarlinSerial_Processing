@@ -13,6 +13,7 @@ Download Processing from here: [Processing download page](https://processing.org
 * Down = -1mm Y
 * z = change up/down to Z instead of Y
 * y = change back from Z to Y on up/down arrows
+These settings are just to show its working - change to serve your needs in the code!
   
 Hope someone find this useful!
 /Kalle
